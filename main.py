@@ -20,7 +20,7 @@ async def weather(ctx):
     """
     # 気象庁の天気予報API（JSONデータ）から福岡県の予報を取得します。
     # 福岡県のエリアコードは 400000 です:contentReference[oaicite:0]{index=0}。
-    url = "https://www.jma.go.jp/bosai/forecast/data/forecast/400000.json"
+    url = "ここは調べて入力しよう！"
     response = requests.get(url)        # APIにHTTPリクエストを送信
     data = response.json()             # 返ってきたJSONデータをPythonの辞書型に変換:contentReference[oaicite:1]{index=1}
     # JSON構造から、天気予報の文章を抽出します。
