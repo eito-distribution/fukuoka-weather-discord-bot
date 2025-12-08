@@ -1,59 +1,49 @@
-import discord
-from discord.ext import commands
-import requests
+# ==== 必要なモジュールのインポート ====
+import discord                     # DiscordのAPIを扱うdiscord.pyライブラリ(Discord Botを制作するために必須です。)
+from discord.ext import commands   # コマンド拡張機能を利用するためのモジュール(スラッシュコマンドを実装するのに使います。)
+import requests                    # Webからデータを取得するためのHTTPクライアントライブラリ(天気情報を持ってくるのに使います。)
 
-# ===== ここは授業のときに各PCで書き換える =====
-TOKEN = "YOUR_BOT_TOKEN_HERE"      # 自分のBotトークンに差し替え
-GUILD_ID = 123456789012345678      # Botを使うDiscordサーバーのID
-# =============================================
+# ==== ボットの基本設定 ====
+TOKEN = "あなたのDisocrd Tokenを入力しましょう！"  # Discord Botのトークン文字列（⚠️‼️ここのコードは絶対に他人に教えてはいけません‼️⚠️）
 
-# Discordの権限設定（Intents）
+# ボットオブジェクトの作成。コマンドプレフィックス（先頭記号）は "/" に設定します。
+# intents はBotが受け取るイベントの種類を指定するもの。基本的な権限のみ有効化（既定のIntents.default()）します。
 intents = discord.Intents.default()
-intents.message_content = True  # メッセージ内容を扱うときに必要
+bot = commands.Bot(command_prefix="/", intents=intents)
 
-# Bot本体（!から始まるコマンド & スラッシュコマンドを扱う）
-bot = commands.Bot(command_prefix="!", intents=intents)
+# ==== スラッシュコマンド（ハイブリッドコマンド）の定義 ====
+@bot.hybrid_command(name="tenki", description="福岡県の天気予報を表示します")  #name="Botに天気を聞くコマンドを入力します。" description="コマンドの説明を入力します。"
+async def weather(ctx):
+    """
+    福岡の天気予報を取得して返すコマンド。
+    このコマンドは '/' プレフィックスでも '/weather' スラッシュコマンドでも実行できます。
+    """
+    # 気象庁の天気予報API（JSONデータ）から福岡県の予報を取得します。
+    # 福岡県のエリアコードは 400000 です:contentReference[oaicite:0]{index=0}。
+    url = "https://www.jma.go.jp/bosai/forecast/data/forecast/400000.json"
+    response = requests.get(url)        # APIにHTTPリクエストを送信
+    data = response.json()             # 返ってきたJSONデータをPythonの辞書型に変換:contentReference[oaicite:1]{index=1}
+    # JSON構造から、天気予報の文章を抽出します。
+    # data[0]["timeSeries"][0]["areas"][0]["weathers"][0] に今日の天気文章が入っています。
+    weather_text = data[0]["timeSeries"][0]["areas"][0]["weathers"][0]
+    weather_text = weather_text.replace('　', '')  # 全角スペースが含まれる場合があるので除去
+    # メッセージの組み立てと送信
+    message = f"福岡県の今日の天気は: {weather_text} です。"
+    await ctx.send(message)  # 天気予報メッセージを送信
 
+# ==== ボット起動時のイベントハンドラ ====
 @bot.event
 async def on_ready():
-    """Bot起動時に1度だけ呼ばれる"""
-    print(f"ログインしました: {bot.user}")
-
-    # スラッシュコマンドをDiscordに登録（同期）
+    """
+    Botが起動してDiscordに接続されたときに1度だけ実行される処理。
+    """
+    print(f"Botログイン完了: {bot.user}")  # 開発用にコンソールにログイン情報を表示
+    # スラッシュコマンドをDiscordに同期（登録）します。
     try:
-        guild = discord.Object(id=GUILD_ID)
-        synced = await bot.tree.sync(guild=guild)
-        print(f"{len(synced)} 個のスラッシュコマンドを同期しました")
+        synced = await bot.tree.sync()
+        print(f"スラッシュコマンド同期完了（{len(synced)}個のコマンド）")
     except Exception as e:
-        print(f"スラッシュコマンド同期エラー: {e}")
+        print(f"コマンド同期時にエラー: {e}")
 
-# ハイブリッドコマンド
-# → /tenki でも !tenki でも呼び出せる
-@bot.hybrid_command(name="tenki", description="福岡のきょうの天気を表示します")
-async def tenki(ctx: commands.Context):
-    """福岡の天気予報を取得して返信するコマンド"""
-    # 気象庁API（福岡県: 400000）の天気予報JSON
-    jma_url = "https://www.jma.go.jp/bosai/forecast/data/forecast/400000.json"
-
-    try:
-        res = requests.get(jma_url, timeout=5)
-        res.raise_for_status()
-        data = res.json()
-
-        # data[0]: 府県予報区
-        # timeSeries[0]: 天気・風・波など
-        # areas[0]: 福岡地方
-        # weathers[0]: きょうの天気の文章
-        weather_text = data[0]["timeSeries"][0]["areas"][0]["weathers"][0]
-        weather_text = weather_text.replace("　", "")  # 全角スペースを削除
-
-        await ctx.send(f"福岡の天気: {weather_text}")
-    except Exception as e:
-        print(f"天気取得エラー: {e}")
-        await ctx.send("天気情報の取得に失敗しました…あとでやり直してみてください。")
-
-# プログラムを実行するときの入り口
-if __name__ == "__main__":
-    if TOKEN == "YOUR_BOT_TOKEN_HERE":
-        raise RuntimeError("main.py の TOKEN を自分のBotトークンに書き換えてください。")
-    bot.run(TOKEN)
+# ==== Botの起動 ====
+bot.run(TOKEN)
